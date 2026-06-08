@@ -43,12 +43,7 @@
         "ms-vscode.vscode-typescript-next", // TypeScript
         "github.vscode-pull-request-github", // GitHub PRs
         "ms-azuretools.vscode-docker" // Docker
-      ],
-      "settings": {
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "typescript.tsdk": "node_modules/typescript/lib"
-      }
+      ]
     }
   },
 
