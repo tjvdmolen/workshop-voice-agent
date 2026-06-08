@@ -1,0 +1,57 @@
+// Dev Container configuration for the Voice Agent Workshop.
+// This container provides a fully configured development environment
+// with Node.js, Wrangler CLI, and all dependencies pre-installed.
+{
+  "name": "Voice Agent Workshop",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  // Forward common development server ports
+  "forwardPorts": [
+    5173, // Vite dev server (client)
+    8787, // Wrangler dev server (worker)
+    8788  // Wrangler dev registry
+  ],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Client Dev",
+      "onAutoForward": "openPreview"
+    },
+    "8787": {
+      "label": "Wrangler Worker Dev",
+      "onAutoForward": "silent"
+    },
+    "8788": {
+      "label": "Wrangler Dev Registry",
+      "onAutoForward": "silent"
+    }
+  },
+
+  // Post-create commands
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // VS Code extensions for the workshop
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Vue.volar",               // Vue 3 official extension
+        "bradlc.vscode-tailwindcss", // Tailwind CSS IntelliSense
+        "esbenp.prettier-vscode",  // Prettier formatter
+        "dbaeumer.vscode-eslint",  // ESLint
+        "ms-vscode.vscode-typescript-next", // TypeScript
+        "github.vscode-pull-request-github", // GitHub PRs
+        "ms-azuretools.vscode-docker" // Docker
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  },
+
+  // The Microsoft devcontainer image uses the 'vscode' user by default
+  "remoteUser": "vscode"
+}

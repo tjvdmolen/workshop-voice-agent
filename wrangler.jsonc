@@ -1,0 +1,51 @@
+{
+  // Cloudflare Worker configuration for the Voice Agent Workshop.
+  //
+  // Deploy with:    wrangler deploy
+  // Local dev with: wrangler dev
+  //
+  // The user picks the deploy target by running `wrangler login` first.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voice-agent-workshop",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-01-09",
+
+  // nodejs_compat is required for Buffer/base64 helpers used in the audio pipeline.
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Workers AI binding. This gives the Worker access to all @cf/* models
+  // (Flux STT, Llama LLM, Aura TTS, smart-turn-v2) on Cloudflare's edge GPUs.
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Durable Object: one VoiceSession instance per active conversation.
+  // Holds transcript state, config, audio buffers, and latency logs.
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "VOICE_SESSION",
+        "class_name": "VoiceSession"
+      }
+    ]
+  },
+
+  // Durable Object migration (required to register the class).
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["VoiceSession"]
+    }
+  ],
+
+  // Serve the built Vue client as static assets from the same Worker.
+  // After `npm run client:build`, the compiled SPA lands in client/dist.
+  "assets": {
+    "directory": "client/dist",
+    "binding": "ASSETS"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
