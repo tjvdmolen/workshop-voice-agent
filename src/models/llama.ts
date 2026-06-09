@@ -38,12 +38,20 @@ export async function streamLlm(
   // The model name and input are cast because the installed
   // @cloudflare/workers-types may predate these model identifiers. Both are
   // valid at runtime on Workers AI.
-  const result = await env.AI.run(options.model as keyof AiModels, {
-    messages,
-    stream: true,
-    temperature: options.temperature,
-    max_tokens: options.maxTokens,
-  } as never);
+  const result = await env.AI.run(
+    options.model as keyof AiModels,
+    {
+      messages,
+      stream: true,
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+    } as never,
+    {
+      gateway: {
+        id: "default", // or use a specific gateway name
+      },
+    },
+  );
 
   // The binding may return the stream directly or wrapped in a response object.
   const stream =

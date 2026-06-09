@@ -114,6 +114,26 @@ npm run deploy
 `wrangler deploy` publishes to whatever account you authenticated with via
 `wrangler login`.
 
+### Shared-account workshops (avoiding name conflicts)
+
+The `deploy` and `tail` scripts append your shell username so each attendee
+gets an isolated Worker — `wrangler deploy --name voice-agent-$USER`. This
+gives everyone a unique `workers.dev` URL, Durable Object namespace, and log
+stream even when deploying to the **same** Cloudflare account, so deploys no
+longer overwrite each other.
+
+If `$USER` is unset (e.g. some Windows shells) or two people share a username,
+pick your own suffix explicitly:
+
+```bash
+npm run client:build
+wrangler deploy --name voice-agent-<your-initials>
+wrangler tail voice-agent-<your-initials>   # to follow your logs
+```
+
+`wrangler dev` runs locally and is never affected — only `deploy` touches the
+shared account.
+
 ## The config panel (the experiment)
 
 Every control maps to a parameter the Worker uses live:

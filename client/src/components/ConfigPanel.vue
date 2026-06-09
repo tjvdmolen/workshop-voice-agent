@@ -5,8 +5,16 @@ import {
   type LlmModel,
   type TtsVoice,
   type TurnDetectionMode,
-  TTS_VOICES,
+  type SttModel,
+  type TtsModel,
+  type SttLanguage,
+  AURA_1_VOICES,
+  AURA_2_EN_VOICES,
+  AURA_2_ES_VOICES,
+  MELOTTs_VOICES,
   LLM_MODELS,
+  TTS_MODELS,
+  LANGUAGES,
 } from "../types";
 
 const props = defineProps<{
@@ -24,12 +32,130 @@ function update<K extends keyof SessionConfig>(key: K, value: SessionConfig[K]) 
 }
 
 const isSmartTurn = computed(() => props.modelValue.turnDetection === "smart-turn");
+const isMeloTts = computed(() => props.modelValue.ttsModel === "@cf/myshell-ai/melotts");
+
+const availableVoices = computed<TtsVoice[]>(() => {
+  switch (props.modelValue.ttsModel) {
+    case "@cf/deepgram/aura-1":
+      return AURA_1_VOICES;
+    case "@cf/deepgram/aura-2-en":
+      return AURA_2_EN_VOICES;
+    case "@cf/deepgram/aura-2-es":
+      return AURA_2_ES_VOICES;
+    case "@cf/myshell-ai/melotts":
+      return MELOTTs_VOICES;
+    default:
+      return AURA_1_VOICES;
+  }
+});
+
+function onTtsModelChange(model: TtsModel) {
+  // Pick the first valid voice for the new model
+  let defaultVoice: TtsVoice;
+  switch (model) {
+    case "@cf/deepgram/aura-1":
+      defaultVoice = "asteria";
+      break;
+    case "@cf/deepgram/aura-2-en":
+      defaultVoice = "luna";
+      break;
+    case "@cf/deepgram/aura-2-es":
+      defaultVoice = "aquila";
+      break;
+    case "@cf/myshell-ai/melotts":
+      defaultVoice = "default";
+      break;
+    default:
+      defaultVoice = "asteria";
+  }
+  emit("update:modelValue", { ...props.modelValue, ttsModel: model, ttsVoice: defaultVoice });
+}
 </script>
 
 <template>
   <section class="panel">
     <h2>Configuration</h2>
     <p class="hint">Tweak these live and feel the latency vs. naturalness trade-off.</p>
+
+    <!-- STT Model -->
+    <div class="field">
+      <label>Speech-to-Text Model</label>
+      <div class="segmented">
+        <button
+          :class="{ active: modelValue.sttModel === '@cf/deepgram/nova-3' }"
+          :disabled="disabled"
+          @click="update('sttModel', '@cf/deepgram/nova-3' as SttModel)"
+        >
+          Nova-3
+        </button>
+        <button
+          :class="{ active: modelValue.sttModel === '@cf/deepgram/flux' }"
+          :disabled="disabled"
+          @click="update('sttModel', '@cf/deepgram/flux' as SttModel)"
+        >
+          Flux
+        </button>
+      </div>
+    </div>
+
+    <!-- Language -->
+    <div class="field">
+      <label>Language</label>
+      <select
+        :value="modelValue.language"
+        :disabled="disabled"
+        @change="update('language', ($event.target as HTMLSelectElement).value as SttLanguage)"
+      >
+        <option v-for="lang in LANGUAGES" :key="lang.value" :value="lang.value">{{ lang.label }}</option>
+      </select>
+    </div>
+
+    <!-- TTS Model -->
+    <div class="field">
+      <label>Text-to-Speech Model</label>
+      <div class="segmented">
+        <button
+          :class="{ active: modelValue.ttsModel === '@cf/deepgram/aura-1' }"
+          :disabled="disabled"
+          @click="onTtsModelChange('@cf/deepgram/aura-1')"
+        >
+          Aura-1
+        </button>
+        <button
+          :class="{ active: modelValue.ttsModel === '@cf/deepgram/aura-2-en' }"
+          :disabled="disabled"
+          @click="onTtsModelChange('@cf/deepgram/aura-2-en')"
+        >
+          Aura-2 EN
+        </button>
+        <button
+          :class="{ active: modelValue.ttsModel === '@cf/deepgram/aura-2-es' }"
+          :disabled="disabled"
+          @click="onTtsModelChange('@cf/deepgram/aura-2-es')"
+        >
+          Aura-2 ES
+        </button>
+        <button
+          :class="{ active: modelValue.ttsModel === '@cf/myshell-ai/melotts' }"
+          :disabled="disabled"
+          @click="onTtsModelChange('@cf/myshell-ai/melotts')"
+        >
+          MeloTTS
+        </button>
+      </div>
+    </div>
+
+    <!-- TTS Language (MeloTTS only) -->
+    <div class="field" v-if="isMeloTts">
+      <label>TTS Language</label>
+      <select
+        :value="modelValue.ttsLanguage"
+        :disabled="disabled"
+        @change="update('ttsLanguage', ($event.target as HTMLSelectElement).value as SttLanguage)"
+      >
+        <option v-for="lang in LANGUAGES" :key="lang.value" :value="lang.value">{{ lang.label }}</option>
+      </select>
+    </div>
 
     <!-- Turn detection mode -->
     <div class="field">
@@ -135,14 +261,14 @@ const isSmartTurn = computed(() => props.modelValue.turnDetection === "smart-tur
     </div>
 
     <!-- TTS voice -->
-    <div class="field">
+    <div class="field" v-if="!isMeloTts">
       <label>TTS Voice</label>
       <select
         :value="modelValue.ttsVoice"
         :disabled="disabled"
         @change="update('ttsVoice', ($event.target as HTMLSelectElement).value as TtsVoice)"
       >
-        <option v-for="v in TTS_VOICES" :key="v" :value="v">{{ v }}</option>
+        <option v-for="v in availableVoices" :key="v" :value="v">{{ v }}</option>
       </select>
     </div>
   </section>

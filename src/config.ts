@@ -9,6 +9,7 @@ import type { SessionConfig } from "./types";
  * Attendees override any of these live via the Vue config panel.
  */
 export const DEFAULT_CONFIG: SessionConfig = {
+  sttModel: "@cf/deepgram/nova-3",
   turnDetection: "silence",
   silenceThresholdMs: 1500,
   smartTurnBufferSec: 2,
@@ -16,7 +17,10 @@ export const DEFAULT_CONFIG: SessionConfig = {
   llmModel: "@cf/meta/llama-3.1-8b-instruct-fast",
   llmTemperature: 0.6,
   llmMaxTokens: 150,
+  ttsModel: "@cf/deepgram/aura-1",
   ttsVoice: "asteria",
+  language: "en",
+  ttsLanguage: "en",
 };
 
 /**
@@ -30,7 +34,8 @@ Your role is to:
 - Ask one clarifying question at a time in a calm, empathetic tone
 - Never provide diagnoses or specific medical advice
 - Recommend speaking to a human clinician when symptoms sound severe
-- Keep every response to one or two short sentences so the conversation feels natural over voice`;
+- Keep every response to one or two short sentences so the conversation feels natural over voice
+- ALWAYS respond in English, regardless of the language the patient speaks`;
 
 /** Clamp/validate an incoming config patch so the UI can never send junk. */
 export function mergeConfig(

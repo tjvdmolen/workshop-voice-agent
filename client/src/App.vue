@@ -9,6 +9,7 @@ import type { LatencyComponent, ServerMessage, SessionConfig } from "./types";
 
 // Default config mirrors the Worker's DEFAULT_CONFIG.
 const config = ref<SessionConfig>({
+  sttModel: "@cf/deepgram/nova-3",
   turnDetection: "silence",
   silenceThresholdMs: 1500,
   smartTurnBufferSec: 2,
@@ -16,7 +17,10 @@ const config = ref<SessionConfig>({
   llmModel: "@cf/meta/llama-3.1-8b-instruct-fast",
   llmTemperature: 0.6,
   llmMaxTokens: 150,
+  ttsModel: "@cf/deepgram/aura-1",
   ttsVoice: "asteria",
+  language: "en",
+  ttsLanguage: "en",
 });
 
 const latencies = reactive<Record<LatencyComponent, number>>({
@@ -92,8 +96,12 @@ function stopConversation() {
 
 // When config changes mid-session, push it live to the Worker.
 function onConfigChange(next: SessionConfig) {
+  console.log("[App] Config changed:", next);
   config.value = next;
-  if (connected.value) send({ type: "config", config: next });
+  if (connected.value) {
+    console.log("[App] Sending config to server:", next);
+    send({ type: "config", config: next });
+  }
 }
 </script>
 
@@ -101,7 +109,7 @@ function onConfigChange(next: SessionConfig) {
   <div class="app">
     <header>
       <h1>Voice Agent Workshop</h1>
-      <p class="subtitle">Cloudflare Workers AI — Flux STT · Llama · Aura TTS · smart-turn-v2</p>
+      <p class="subtitle">Cloudflare Workers AI — Nova-3/Flux STT · Llama · Aura/MeloTTS TTS · smart-turn-v2</p>
     </header>
 
     <div class="grid">
@@ -143,6 +151,8 @@ function onConfigChange(next: SessionConfig) {
         :latencies="latencies"
         :turn-mode="config.turnDetection"
         :turn-count="turnCount"
+        :stt-model="config.sttModel"
+        :tts-model="config.ttsModel"
       />
     </div>
   </div>

@@ -1,8 +1,8 @@
 import { AUDIO, DEFAULT_CONFIG, mergeConfig } from "./config";
-import { FluxStream } from "./models/flux";
+import { createSttStream, type SttStream } from "./models/stt";
 import { detectTurn } from "./models/smart-turn";
 import { streamLlm, type ChatTurn } from "./models/llama";
-import { AURA_MIME_TYPE, extractSentences, synthesizeSentence } from "./models/aura";
+import { createTtsProvider, type TtsProvider } from "./models/tts";
 import { base64ToBytes, bytesToBase64, concatBytes, tailBytes } from "./utils";
 import type {
   ClientMessage,
@@ -15,11 +15,12 @@ import type {
 /**
  * VoiceSession is a Durable Object: exactly one instance backs each active
  * conversation. It owns all conversation state and orchestrates the full
- * pipeline: Flux STT -> turn detection -> Llama LLM -> Aura TTS.
+ * pipeline: Nova-3 STT -> turn detection -> Llama LLM -> Aura TTS.
  */
 export class VoiceSession implements DurableObject {
   private clientWs: WebSocket | null = null;
-  private flux: FluxStream | null = null;
+  private stt: SttStream | null = null;
+  private ttsProvider: TtsProvider | null = null;
 
   private config: SessionConfig = { ...DEFAULT_CONFIG };
   private history: ChatTurn[] = [];
@@ -68,8 +69,25 @@ export class VoiceSession implements DurableObject {
 
     switch (msg.type) {
       case "config":
+        const oldSttModel = this.config.sttModel;
+        const oldTtsModel = this.config.ttsModel;
+        const oldTtsLanguage = this.config.ttsLanguage;
+        console.log(`[VoiceSession] Received config patch:`, JSON.stringify(msg.config));
         this.config = mergeConfig(this.config, msg.config);
+        console.log(`[VoiceSession] Merged config - ttsLanguage=${this.config.ttsLanguage}`);
         this.send({ type: "ready", config: this.config });
+        // If the STT model changed mid-session, close the old stream so the
+        // next audio chunk will lazily open the new one.
+        if (oldSttModel !== this.config.sttModel && this.stt) {
+          console.log(`[VoiceSession] STT model switched: ${oldSttModel} -> ${this.config.sttModel}`);
+          this.stt.close();
+          this.stt = null;
+        }
+        // If the TTS model or language changed, recreate the provider.
+        if (oldTtsModel !== this.config.ttsModel || oldTtsLanguage !== this.config.ttsLanguage) {
+          console.log(`[VoiceSession] TTS config changed: model=${this.config.ttsModel} lang=${this.config.ttsLanguage}`);
+          this.ttsProvider = createTtsProvider(this.env, this.config.ttsModel, this.config.ttsVoice, this.config.ttsLanguage);
+        }
         break;
 
       case "audio":
@@ -94,14 +112,14 @@ export class VoiceSession implements DurableObject {
       if (this.turnStartedAt === 0) this.turnStartedAt = this.lastAudioAt;
     }
 
-    // Lazily open the Flux connection on first audio.
-    if (!this.flux) {
-      console.log("[VoiceSession] Opening Flux connection...");
-      await this.openFlux();
+    // Lazily open the STT connection on first audio.
+    if (!this.stt) {
+      console.log("[VoiceSession] Opening Nova-3 connection...");
+      await this.openStt();
     }
 
-    // Forward to Flux for transcription (Flux can handle silence itself).
-    this.flux?.sendAudio(pcm);
+    // Forward to Nova-3 for transcription (Nova-3 can handle silence itself).
+    this.stt?.sendAudio(pcm);
 
     if (this.config.turnDetection === "silence") {
       // Only reset the silence timer on actual speech, not on silent buffers.
@@ -130,14 +148,14 @@ export class VoiceSession implements DurableObject {
     return avg < 150;
   }
 
-  private async openFlux(): Promise<void> {
-    this.flux = new FluxStream(this.env, {
+  private async openStt(): Promise<void> {
+    this.stt = createSttStream(this.env, this.config.sttModel, this.config.language, {
       onTranscript: (text, isFinal) => {
         if (this.sttFirstTokenAt === 0 && this.turnStartedAt > 0) {
           this.sttFirstTokenAt = Date.now();
           this.reportLatency("stt", this.sttFirstTokenAt - this.turnStartedAt);
         }
-        console.log(`[Flux] transcript="${text}" isFinal=${isFinal}`);
+        console.log(`[${this.config.sttModel}] transcript="${text}" isFinal=${isFinal}`);
         // Accumulate finals; keep latest partial as fallback.
         if (isFinal) {
           this.currentTranscript += (this.currentTranscript ? " " : "") + text;
@@ -147,10 +165,10 @@ export class VoiceSession implements DurableObject {
         }
         this.send({ type: "transcript", text, isPartial: !isFinal });
       },
-      onError: (err) => this.send({ type: "error", message: `Flux: ${String(err)}` }),
+      onError: (err) => this.send({ type: "error", message: `${this.config.sttModel}: ${String(err)}` }),
       onClose: () => {},
     });
-    await this.flux.connect();
+    await this.stt.connect();
   }
 
   // ---- Turn detection: silence mode ----
@@ -226,7 +244,7 @@ export class VoiceSession implements DurableObject {
 
           // Flush complete sentences to TTS as soon as they form.
           ttsBuffer += token;
-          const { sentences, rest } = extractSentences(ttsBuffer);
+          const { sentences, rest } = this.ttsProvider!.extractSentences(ttsBuffer);
           ttsBuffer = rest;
           for (const sentence of sentences) {
             this.speak(sentence, ttsStartedAt).catch((err) => {
@@ -258,8 +276,13 @@ export class VoiceSession implements DurableObject {
 
   /** Synthesize one sentence and stream the audio to the client. */
   private async speak(sentence: string, ttsStartedAt: { value: number }): Promise<void> {
+    if (!this.ttsProvider) {
+      console.log(`[VoiceSession] Lazily creating TTS provider with lang=${this.config.ttsLanguage}`);
+      this.ttsProvider = createTtsProvider(this.env, this.config.ttsModel, this.config.ttsVoice, this.config.ttsLanguage);
+    }
+    console.log(`[VoiceSession] Speaking with provider mimeType=${this.ttsProvider.mimeType}`);
     const startedAt = Date.now();
-    const audio = await synthesizeSentence(this.env, sentence, this.config.ttsVoice);
+    const audio = await this.ttsProvider.synthesize(sentence);
 
     // Report TTS latency only for the first sentence (time-to-first-audio).
     if (ttsStartedAt.value === 0) {
@@ -270,7 +293,7 @@ export class VoiceSession implements DurableObject {
     this.send({
       type: "audio",
       data: bytesToBase64(audio),
-      mimeType: AURA_MIME_TYPE,
+      mimeType: this.ttsProvider.mimeType,
     });
   }
 
@@ -288,7 +311,7 @@ export class VoiceSession implements DurableObject {
 
   private cleanup(): void {
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
-    this.flux?.close();
-    this.flux = null;
+    this.stt?.close();
+    this.stt = null;
   }
 }

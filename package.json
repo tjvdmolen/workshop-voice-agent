@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "tail": "wrangler tail",
+    "deploy": "wrangler deploy --name voice-agent-$USER",
+    "tail": "wrangler tail voice-agent-$USER",
     "client:dev": "npm --prefix client run dev",
     "client:build": "npm --prefix client run build",
     "typecheck": "tsc --noEmit"

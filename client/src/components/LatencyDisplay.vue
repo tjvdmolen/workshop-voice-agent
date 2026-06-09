@@ -1,20 +1,39 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { LatencyComponent, TurnDetectionMode } from "../types";
+import type { LatencyComponent, TurnDetectionMode, SttModel, TtsModel } from "../types";
 
 const props = defineProps<{
   latencies: Record<LatencyComponent, number>;
   turnMode: TurnDetectionMode;
   turnCount: number;
+  sttModel: SttModel;
+  ttsModel: TtsModel;
 }>();
 
 const TARGET_MS = 1000; // conversational "feels instant" budget
 
+const sttLabel = computed(() => {
+  return props.sttModel === "@cf/deepgram/flux" ? "STT (Flux)" : "STT (Nova-3)";
+});
+
+const ttsLabel = computed(() => {
+  switch (props.ttsModel) {
+    case "@cf/myshell-ai/melotts":
+      return "TTS (MeloTTS)";
+    case "@cf/deepgram/aura-2-en":
+      return "TTS (Aura-2 EN)";
+    case "@cf/deepgram/aura-2-es":
+      return "TTS (Aura-2 ES)";
+    default:
+      return "TTS (Aura-1)";
+  }
+});
+
 const rows = computed(() => [
-  { key: "stt" as const, label: "STT (Flux)" },
+  { key: "stt" as const, label: sttLabel.value },
   { key: "turn" as const, label: "Turn Detect" },
   { key: "llm" as const, label: "LLM" },
-  { key: "tts" as const, label: "TTS (Aura)" },
+  { key: "tts" as const, label: ttsLabel.value },
 ]);
 
 const totalPct = computed(() =>

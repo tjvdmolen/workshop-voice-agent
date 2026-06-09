@@ -1,33 +1,36 @@
 import { AUDIO } from "../config";
-import type { Env } from "../types";
+import type { Env, SttLanguage } from "../types";
 import type { SttCallbacks, SttStream } from "./stt";
 
 /**
- * Deepgram Flux — streaming speech-to-text built for voice agents.
- * https://developers.cloudflare.com/workers-ai/models/flux/
+ * Deepgram Nova-3 — streaming speech-to-text with multilingual support.
+ * https://developers.cloudflare.com/workers-ai/models/nova-3/
  *
- * Flux is WebSocket-only: it needs a live bi-directional stream so it can
- * recognize speech activity in real time. We open the connection once per
- * conversation and feed it raw 16kHz linear16 PCM as the user speaks.
+ * Nova-3 supports 10 languages + automatic multilingual detection ("multi").
+ * It works over WebSocket for real-time streaming voice agents.
  */
-export class FluxStream implements SttStream {
+export class Nova3Stream implements SttStream {
   private ws: WebSocket | null = null;
 
   constructor(
     private env: Env,
+    private language: SttLanguage,
     private callbacks: SttCallbacks,
   ) {}
 
-  /** Open the WebSocket to the Flux model via the AI binding. */
+  /** Open the WebSocket to the Nova-3 model via the AI binding. */
   async connect(): Promise<void> {
-    // `websocket: true` makes the binding return a Response carrying a
-    // WebSocket we can accept and stream audio over.
+    const params: Record<string, string> = {
+      encoding: AUDIO.ENCODING,
+      sample_rate: String(AUDIO.SAMPLE_RATE),
+    };
+    if (this.language !== "multi") {
+      params.language = this.language;
+    }
+
     const response = await this.env.AI.run(
-      "@cf/deepgram/flux",
-      {
-        encoding: AUDIO.ENCODING,
-        sample_rate: String(AUDIO.SAMPLE_RATE),
-      },
+      "@cf/deepgram/nova-3" as keyof AiModels,
+      params as never,
       {
         websocket: true,
         gateway: {
@@ -38,7 +41,7 @@ export class FluxStream implements SttStream {
 
     const ws = (response as unknown as { webSocket: WebSocket | null }).webSocket;
     if (!ws) {
-      throw new Error("Flux did not return a WebSocket. Check Workers AI access.");
+      throw new Error("Nova-3 did not return a WebSocket. Check Workers AI access.");
     }
 
     ws.accept();
@@ -46,12 +49,11 @@ export class FluxStream implements SttStream {
 
     ws.addEventListener("message", (event: MessageEvent) => {
       try {
-        // Flux returns JSON transcript events.
         const payload = typeof event.data === "string" ? event.data : "";
         if (!payload) return;
         const msg = JSON.parse(payload);
 
-        // Flux event shapes vary; we defensively read the common fields.
+        // Nova-3 event shapes: transcript, is_final, speech_final, channel.alternatives[0].transcript
         const text: string =
           msg.transcript ?? msg.text ?? msg.channel?.alternatives?.[0]?.transcript ?? "";
         const isFinal: boolean = Boolean(msg.is_final ?? msg.speech_final ?? false);
@@ -68,7 +70,7 @@ export class FluxStream implements SttStream {
     ws.addEventListener("close", () => this.callbacks.onClose());
   }
 
-  /** Forward a chunk of raw PCM audio to Flux. */
+  /** Forward a chunk of raw PCM audio to Nova-3. */
   sendAudio(pcm: ArrayBuffer | Uint8Array): void {
     if (!this.ws) return;
     this.ws.send(pcm);

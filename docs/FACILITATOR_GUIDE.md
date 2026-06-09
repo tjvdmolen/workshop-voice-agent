@@ -83,6 +83,13 @@ npm run dev
 Checkpoint: everyone sees the UI and a "Connected" status after clicking Start.
 Expect questions about Workers AI access — have a backup account ready.
 
+> **Shared-account note:** `npm run dev` runs locally and never collides. When
+> attendees later run `npm run deploy`, the script auto-appends their username
+> (`wrangler deploy --name voice-agent-$USER`) so parallel deploys to the same
+> account don't overwrite each other. If usernames clash, have them pass
+> `--name voice-agent-<initials>` explicitly. See the README "Shared-account
+> workshops" section.
+
 ## 1:00 — Hands-On 2: mic + Flux STT (25 min)
 
 Focus on `src/models/flux.ts` and `client/src/composables/useAudioCapture.ts`.
