@@ -12,7 +12,8 @@
   "forwardPorts": [
     5173, // Vite dev server (client)
     8787, // Wrangler dev server (worker)
-    8788  // Wrangler dev registry
+    8788, // Wrangler dev registry
+    8976  // Wrangler OAuth callback (wrangler login)
   ],
   "portsAttributes": {
     "5173": {
@@ -26,7 +27,18 @@
     "8788": {
       "label": "Wrangler Dev Registry",
       "onAutoForward": "silent"
+    },
+    "8976": {
+      "label": "Wrangler OAuth Callback",
+      "onAutoForward": "silent"
     }
+  },
+
+  // Forward the host's USER env so namespaced deploys (voice-agent-$USER)
+  // work inside the container instead of falling back to a generic name.
+  "remoteEnv": {
+    "USER": "${localEnv:USER}${localEnv:USERNAME}",
+    "NODE_OPTIONS": "--dns-result-order=ipv4first"
   },
 
   // Post-create commands
@@ -47,6 +59,4 @@
     }
   },
 
-  // The Microsoft devcontainer image uses the 'vscode' user by default
-  "remoteUser": "vscode"
 }
