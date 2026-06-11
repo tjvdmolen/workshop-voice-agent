@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
 # automatically trusted by both the system and Node.js.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-COPY .devcontainer/certs/*.crt /usr/local/share/ca-certificates/
+COPY .devcontainer/certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
 # Node.js uses its own bundled certificate list by default.
