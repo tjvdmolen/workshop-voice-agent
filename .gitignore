@@ -5,3 +5,4 @@ client/dist/
 .dev.vars
 *.log
 .DS_Store
+.devcontainer/certs
