@@ -39,6 +39,8 @@ export type TtsModel =
   | "@cf/myshell-ai/melotts";
 
 export type TtsVoice =
+  // MeloTTS
+  | "default"
   // Aura-1 voices
   | "angus"
   | "asteria"

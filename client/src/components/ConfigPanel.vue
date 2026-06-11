@@ -62,9 +62,6 @@ function onTtsModelChange(model: TtsModel) {
     case "@cf/deepgram/aura-2-es":
       defaultVoice = "aquila";
       break;
-    case "@cf/myshell-ai/melotts":
-      defaultVoice = "default";
-      break;
     default:
       defaultVoice = "asteria";
   }

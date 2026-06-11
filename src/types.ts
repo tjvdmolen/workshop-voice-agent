@@ -20,8 +20,11 @@ export type TtsModel =
  * Aura-1: https://developers.cloudflare.com/workers-ai/models/aura-1/
  * Aura-2-en: https://developers.cloudflare.com/workers-ai/models/aura-2-en/
  * Aura-2-es: https://developers.cloudflare.com/workers-ai/models/aura-2-es/
+ * MeloTTS: uses "default" voice.
  */
 export type TtsVoice =
+  // MeloTTS
+  | "default"
   // Aura-1 voices
   | "angus"
   | "asteria"
